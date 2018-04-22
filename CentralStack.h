@@ -1,8 +1,11 @@
 #ifndef CENTRALSTACK_H
 #define CENTRALSTACK_H
 
+#include <iostream>
 #include <atomic>
 #include <thread>
+
+using namespace std;
 
 // Used structures
 struct Node {
@@ -73,6 +76,8 @@ class CentralStack {
         void StackOp(ThreadInfo *p) {
             if(TryPerformStackOp(p) == false)
                 ElimOp(p);
+
+            cout << "thread " << p->id << "done\n";
             return;
 
         };
@@ -105,6 +110,7 @@ class CentralStack {
                 else
                     return false;
             }
+            return false;
         };
 
 
@@ -112,23 +118,70 @@ class CentralStack {
         // NEED TO FINISH
         void ElimOp(ThreadInfo *p)  {
 
-            location[p->id].store(p);
-            // NEED TO MAKE A RANDOM Function for this
-            int pos = 5;
+            int myID = p->id;
+            location[myID].store(p);
+
+            int pos = getPos(p);
 
             int him = collision[pos].load();
 
-            while(!collision[pos].compare_exchange_weak(him, p->id))    {
+            while(!collision[pos].compare_exchange_weak(him, myID))    {
                 him = collision[pos].load();
             }
+            if(him != 0)    {
+                ThreadInfo *q = location[him].load();
+                 if(q!=nullptr && q->id==him && q->op!=p->op) {
+                    if(location[myID].compare_exchange_strong(p, nullptr))  {
+                        if(TryCollision(p, q))
+                            return;
+                        else    {
+                            StackOp(p);
+                            return;
+                        }
+                    }
+                    else    {
+                        FinishCollisions(p);
+                        return;
+                    }
 
+                }
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            // AdaptWidth();
+
+            if(!(location[myID].compare_exchange_weak(p, nullptr))) {
+                FinishCollisions(p);
+                return;
+            }
+            StackOp(p);
+            return;
         };
 
 
         // Attempt a collision
         // NEED TO FINISH
-        void TryCollision(ThreadInfo *p, ThreadInfo *q) {
+        bool TryCollision(ThreadInfo *p, ThreadInfo *q) {
+            if(p->op == 'U')    {
+                if(location[q->id].compare_exchange_weak(q,p))
+                    return true;
+                else    {
+                    // AdaptWidth();
+                    return false;
+                }
+            }
 
+            if(p->op == 'O')    {
+                if(location[q->id].compare_exchange_strong(q, nullptr)) {
+                    p->node = q->node;
+                    location[p->id] = nullptr;
+                    return true;
+                }
+                else{
+                    // AdaptWidth();
+                    return false;
+                }
+            }
+            return false;
         };
 
 
@@ -141,12 +194,26 @@ class CentralStack {
         };
 
 
+        int getPos(ThreadInfo *p)   {
+
+            int random = rand() % p->id;
+            return random;
+        };
+
+
 };
 
 CentralStack::CentralStack(int stackSize)    {
     head = nullptr;
     location = new std::atomic<ThreadInfo*>[stackSize];
+    for(int i = 0; i < stackSize; i++)  {
+        location[i].store(nullptr);
+    }
     collision = new std::atomic<int>[stackSize];
+    for(int i = 0; i < stackSize; i++)  {
+        collision[i].store(0);
+    }
+
     stackLength = stackSize;
 }
 
