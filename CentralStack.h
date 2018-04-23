@@ -74,10 +74,10 @@ class CentralStack {
 
         // The function that is called when trying to perform an operation
         void StackOp(ThreadInfo *p) {
-            if(TryPerformStackOp(p) == false)
+            if(TryPerformStackOp(p) == false)   {
                 ElimOp(p);
+            }
 
-            cout << "thread " << p->id << "done\n";
             return;
 
         };
@@ -89,6 +89,7 @@ class CentralStack {
 
             if(p->op == 'U')    {
                 top = head.load();
+                p->node->next = top;
                 if(head.compare_exchange_weak(top, p->node)) {
                     return true;
                 }
@@ -114,10 +115,7 @@ class CentralStack {
         };
 
 
-        // Try to use the elimination array
-        // NEED TO FINISH
         void ElimOp(ThreadInfo *p)  {
-
             int myID = p->id;
             location[myID].store(p);
 
@@ -128,12 +126,14 @@ class CentralStack {
             while(!collision[pos].compare_exchange_weak(him, myID))    {
                 him = collision[pos].load();
             }
+
             if(him != 0)    {
                 ThreadInfo *q = location[him].load();
                  if(q!=nullptr && q->id==him && q->op!=p->op) {
-                    if(location[myID].compare_exchange_strong(p, nullptr))  {
-                        if(TryCollision(p, q))
+                    if(location[myID].compare_exchange_weak(p, nullptr))  {
+                        if(TryCollision(p, q))  {
                             return;
+                        }
                         else    {
                             StackOp(p);
                             return;
@@ -146,10 +146,12 @@ class CentralStack {
 
                 }
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            // AdaptWidth();
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            //Adapt(p, 0);
 
             if(!(location[myID].compare_exchange_weak(p, nullptr))) {
+
                 FinishCollisions(p);
                 return;
             }
@@ -165,19 +167,18 @@ class CentralStack {
                 if(location[q->id].compare_exchange_weak(q,p))
                     return true;
                 else    {
-                    // AdaptWidth();
+                    //Adapt(p, 1);
                     return false;
                 }
             }
-
             if(p->op == 'O')    {
-                if(location[q->id].compare_exchange_strong(q, nullptr)) {
+                if(location[q->id].compare_exchange_weak(q, nullptr)) {
                     p->node = q->node;
-                    location[p->id] = nullptr;
+                    location[p->id].store(nullptr);
                     return true;
                 }
                 else{
-                    // AdaptWidth();
+                    //Adapt(p, 1);
                     return false;
                 }
             }
@@ -187,17 +188,43 @@ class CentralStack {
 
         // Finish a collision
         void FinishCollisions(ThreadInfo *p)    {
+
             if(p->op == 'O')    {
                 p->node = location[p->id].load()->node;
-                location[p->id] = nullptr;
+                location[p->id].store(nullptr);
+
             }
         };
 
 
         int getPos(ThreadInfo *p)   {
 
-            int random = rand() % p->id;
+            int random = rand() % 32;
             return random;
+        };
+
+
+        void Adapt(ThreadInfo *p, int direction)    {
+            if(direction == 0)   {
+                if(p->adapt->width == 0)  {
+                    p->adapt->width = 5;
+                    p->adapt->factor = p->adapt->factor/2;
+                    if(p->adapt->factor < 0.125)
+                        p->adapt->factor = 0.125;
+                }
+                else
+                    p->adapt->width--;
+            }
+            if(direction == 1)  {
+                if(p->adapt->width == 5)  {
+                    p->adapt->width = 0;
+                    p->adapt->factor = p->adapt->factor*2;
+                    if(p->adapt->factor > 1)
+                        p->adapt->factor = 1;
+                }
+            }
+
+            return;
         };
 
 

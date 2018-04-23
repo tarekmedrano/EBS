@@ -1,41 +1,76 @@
 #include "CentralStack.h"
+#include <iostream>
+#include <ctime>
 
 using namespace std;
 
+void runThreads(CentralStack *S, ThreadInfo **threadList, int listSize)   {
+
+    for(int i = 0; i < listSize; i++)   {
+        S->StackOp(threadList[i]);
+    }
+
+}
+
 int main()
 {
+    CentralStack *S;
+    S = new CentralStack(32);
+    ThreadInfo **listOne;
+    ThreadInfo **listTwo;
+    ThreadInfo **listThree;
+    ThreadInfo **listFour;
+    ThreadInfo **listFive;
+    ThreadInfo **listSix;
+    ThreadInfo **listSeven;
+    ThreadInfo **listEight;
 
-    CentralStack S(32);
+    int listSize = 62500;
+    int a = 5;
 
-    int a = 1;
-    int b = 2;
-    int c = 3;
+    listOne = new ThreadInfo*[listSize];
+    listTwo = new ThreadInfo*[listSize];
+    listThree = new ThreadInfo*[listSize];
+    listFour = new ThreadInfo*[listSize];
+    listFive = new ThreadInfo*[listSize];
+    listSix = new ThreadInfo*[listSize];
+    listSeven = new ThreadInfo*[listSize];
+    listEight = new ThreadInfo*[listSize];
 
-    ThreadInfo *firstThread = S.genThreadInfo(1, 'U', &a);
-    ThreadInfo *secondThread = S.genThreadInfo(2, 'O', &a);
-    ThreadInfo *thirdThread = S.genThreadInfo(3, 'U', &b);
-    ThreadInfo *fourthThread = S.genThreadInfo(4, 'O', &b);
-    ThreadInfo *fifthThread = S.genThreadInfo(5, 'U', &c);
-    ThreadInfo *sixthThread = S.genThreadInfo(6, 'O', &c);
-
-    std::thread first (&CentralStack::StackOp, &S, firstThread);
-    std::thread second (&CentralStack::StackOp, &S, secondThread);
-    std::thread third (&CentralStack::StackOp, &S, thirdThread);
-    std::thread fourth (&CentralStack::StackOp, &S, fourthThread);
-    std::thread fifth (&CentralStack::StackOp, &S, fifthThread);
-    std::thread sixth (&CentralStack::StackOp, &S, sixthThread);
-
-    first.join();
-    second.join();
-    third.join();
-    fourth.join();
-    fifth.join();
-    sixth.join();
-
-    if(S.head.load() == nullptr)    {
-        cout << "No head.\n";
+    for(int i = 0; i < listSize; i++)   {
+        listOne[i] = S->genThreadInfo(1, 'U', &a);
+        listTwo[i] = S->genThreadInfo(2, 'O', &a);
+        listThree[i] = S->genThreadInfo(3, 'U', &a);
+        listFour[i] = S->genThreadInfo(4, 'O', &a);
+        listFive[i] = S->genThreadInfo(5, 'U', &a);
+        listSix[i] = S->genThreadInfo(6, 'O', &a);
+        listSeven[i] = S->genThreadInfo(7, 'U', &a);
+        listEight[i] = S->genThreadInfo(8, 'O', &a);
     }
-    else    {
-        cout << *(int*) S.head.load()->data << "\n";
-    }
+
+
+    clock_t t = clock();
+
+    std::thread testOne(runThreads, S, listOne, listSize);
+    std::thread testTwo(runThreads, S, listTwo, listSize);
+    std::thread testThree(runThreads, S, listOne, listSize);
+    std::thread testFour(runThreads, S, listTwo, listSize);
+    std::thread testFive(runThreads, S, listFive, listSize);
+    std::thread testSix(runThreads, S, listSix, listSize);
+    std::thread testSeven(runThreads, S, listSeven, listSize);
+    std::thread testEight(runThreads, S, listEight, listSize);
+
+    testOne.join();
+    testTwo.join();
+    testThree.join();
+    testFour.join();
+    testFive.join();
+    testSix.join();
+    testSeven.join();
+    testEight.join();
+
+    t = clock() - t;
+    cout << ((float)t)/CLOCKS_PER_SEC;
 }
+
+
